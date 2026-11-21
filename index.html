@@ -1,0 +1,1235 @@
+
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>رصيد كاش - Rosid Cash v3.0</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* تنسيق الخلفية والخطوط العامة للتطبيق */
+        body {
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: radial-gradient(circle at top, #2e1065, #090314 80%);
+            min-height: 100vh;
+            color: #f3e8ff;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        .glow-text {
+            text-shadow: 0 0 14px rgba(192, 132, 252, 0.7);
+        }
+        .wheel-transition {
+            transition: transform 4s cubic-bezier(0.17, 0.67, 0.12, 0.99);
+        }
+    </style>
+</head>
+<body class="p-3 flex flex-col items-center justify-start gap-3">
+
+    <!-- شاشة صورة ثابتة عند اكتشاف إصدار قديم لإيقاف العمل وطلب التحديث -->
+    <div id="outdated-screen" class="hidden fixed inset-0 bg-[#090314] z-50 flex flex-col items-center justify-center p-5 text-center">
+        <div class="w-full max-w-sm bg-purple-950/95 border border-rose-500/40 rounded-3xl p-5 flex flex-col items-center gap-4 shadow-2xl">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 150" class="w-full h-36 rounded-2xl border border-purple-400/30 bg-purple-900/60">
+                <rect width="240" height="150" fill="#2e1065" />
+                <circle cx="120" cy="60" r="32" fill="#e11d48" opacity="0.25" />
+                <path d="M120 34 L148 82 L92 82 Z" fill="none" stroke="#fbbf24" stroke-width="5" stroke-linejoin="round" />
+                <rect x="117.5" y="48" width="5" height="20" rx="2" fill="#fbbf24" />
+                <circle cx="120" cy="74" r="3" fill="#fbbf24" />
+                <text x="120" y="108" text-anchor="middle" fill="#ffffff" font-size="15" font-weight="bold" font-family="system-ui, sans-serif">الإصدار قديم - مطلوب تحديث</text>
+                <text x="120" y="128" text-anchor="middle" fill="#e9d5ff" font-size="11" font-family="system-ui, sans-serif">يرجى تحميل أحدث نسخة من اللعبة</text>
+            </svg>
+        </div>
+    </div>
+
+    <!-- ترويسة التطبيق: الإصدار، حالة السيرفر، التذاكر، ونقاط السحب -->
+    <header class="w-full max-w-md flex flex-col gap-2 bg-purple-950/90 p-3 rounded-2xl shadow-lg border border-purple-500/30">
+        <div class="flex justify-between items-center">
+            <div>
+                <h1 class="text-sm font-black text-purple-300 glow-text uppercase tracking-wider">
+                    رصيد كاش 📱💵
+                    <span id="app-version-badge" class="text-[9px] text-amber-300">v3.0</span>
+                    <span id="cloud-status-badge" class="text-[8px] text-green-400">☁️ متصل ومؤمّن</span>
+                </h1>
+                <p class="text-[9px] text-purple-200">امسح، لعبة النقاط، عجلة الحظ، ومكافآت يومية!</p>
+            </div>
+            <div class="bg-purple-600/30 border border-purple-400/50 text-purple-200 px-2.5 py-1 rounded-full text-[11px] font-black flex items-center gap-1">
+                💎 تذاكر: <span id="balance">5,000</span>
+            </div>
+        </div>
+        <div class="flex justify-between items-center bg-purple-900/60 px-3 py-1.5 rounded-xl border border-purple-500/30">
+            <span class="text-[10px] text-purple-200 font-bold">🎯 نقاط السحب (الهدف 300,000):</span>
+            <span id="points-count" class="text-xs font-black text-purple-300">0 نقطة</span>
+        </div>
+    </header>
+
+    <!-- شريط التنقل بين أقسام اللعبة -->
+    <nav class="w-full max-w-md grid grid-cols-4 gap-1.5">
+        <button id="tab-scratch" onclick="switchTab('scratch')" class="py-2 bg-purple-600 text-white font-black rounded-xl text-[10px] shadow cursor-pointer border border-purple-400">
+            🎟️ الخدش
+        </button>
+        <button id="tab-points-game" onclick="switchTab('points-game')" class="py-2 bg-purple-900/80 text-purple-200 font-black rounded-xl text-[10px] shadow cursor-pointer border border-purple-500/30">
+            ⚡ لعبة النقاط
+        </button>
+        <button id="tab-wheel" onclick="switchTab('wheel')" class="py-2 bg-purple-900/80 text-purple-200 font-black rounded-xl text-[10px] shadow cursor-pointer border border-purple-500/30">
+            🎡 العجلة
+        </button>
+        <button id="tab-rewards" onclick="switchTab('rewards')" class="py-2 bg-purple-900/80 text-purple-200 font-black rounded-xl text-[10px] shadow cursor-pointer border border-purple-500/30">
+            🎁 المكافآت
+        </button>
+    </nav>
+
+    <!-- قسم الخدش بالتذاكر -->
+    <main id="section-scratch" class="w-full max-w-md flex flex-col gap-3">
+        <div class="bg-purple-950/80 p-3 rounded-2xl border border-purple-500/30">
+            <p class="text-[11px] text-purple-200 font-bold mb-2 text-center">اختر قيمة تذكرة الخدش:</p>
+            <div class="grid grid-cols-2 gap-2">
+                <button id="bet-500" onclick="setBet(500)" class="py-1.5 bg-purple-600 text-white font-black rounded-xl text-xs shadow border border-purple-400 cursor-pointer">
+                    500 تذكرة <span class="block text-[9px] font-normal text-purple-100">ربح: 500</span>
+                </button>
+                <button id="bet-1000" onclick="setBet(1000)" class="py-1.5 bg-purple-900/80 text-purple-300 font-black rounded-xl text-xs shadow border border-purple-500/40 cursor-pointer">
+                    1,000 تذكرة <span class="block text-[9px] font-normal text-purple-300">ربح: 1,000</span>
+                </button>
+            </div>
+        </div>
+
+        <div class="bg-purple-950/80 p-3 rounded-2xl border border-purple-500/30 flex flex-col items-center gap-2">
+            <p class="text-[11px] text-purple-200 font-bold">👆 حرك إصبعك لمسح الطبقة وإظهار الجائزة</p>
+            <div class="relative w-full h-40 rounded-2xl overflow-hidden border border-purple-400/40 bg-purple-900 flex flex-col items-center justify-center p-4 text-center">
+                <span id="result-title" class="text-xs font-black text-green-400 mt-0.5">🎉 مبروك! ربحت 500 تذكرة</span>
+                <span id="result-desc" class="text-[11px] text-purple-200 mt-1">+500 نقطة سحب</span>
+                <canvas id="scratchCanvas" class="absolute inset-0 w-full h-full cursor-pointer"></canvas>
+            </div>
+            <button id="action-btn" onclick="initNewCard()" class="hidden w-full py-2.5 bg-purple-600 hover:bg-purple-500 text-white font-black rounded-xl text-xs shadow cursor-pointer">
+                🔄 تذكرة جديدة
+            </button>
+        </div>
+    </main>
+
+    <!-- قسم لعبة النقاط (ربح وخسارة برصيد النقاط) -->
+    <section id="section-points-game" class="hidden w-full max-w-md bg-purple-950/80 p-4 rounded-2xl border border-purple-500/30 flex flex-col gap-3 text-center">
+        <h2 class="text-sm font-black text-amber-300">⚡ تحدي النقاط (ربح أو خسارة)</h2>
+        <p class="text-[10px] text-purple-200">اختر رهان النقاط واضغط على أحد الصناديق؛ اربح ضعف الرهان أو اخسر رهان النقاط!</p>
+
+        <div class="grid grid-cols-2 gap-2">
+            <button id="pg-bet-200" onclick="setPointsBet(200)" class="py-2 bg-purple-600 text-white font-black rounded-xl text-xs shadow border border-purple-400 cursor-pointer">
+                رهان 200 نقطة
+            </button>
+            <button id="pg-bet-500" onclick="setPointsBet(500)" class="py-2 bg-purple-900/80 text-purple-300 font-black rounded-xl text-xs shadow border border-purple-500/40 cursor-pointer">
+                رهان 500 نقطة
+            </button>
+        </div>
+
+        <div class="grid grid-cols-3 gap-2 mt-1">
+            <button onclick="playPointsBox(0)" class="py-5 bg-purple-900 hover:bg-purple-800 border border-purple-400/40 rounded-2xl font-black text-sm text-amber-300 shadow cursor-pointer">
+                📦 1
+            </button>
+            <button onclick="playPointsBox(1)" class="py-5 bg-purple-900 hover:bg-purple-800 border border-purple-400/40 rounded-2xl font-black text-sm text-amber-300 shadow cursor-pointer">
+                📦 2
+            </button>
+            <button onclick="playPointsBox(2)" class="py-5 bg-purple-900 hover:bg-purple-800 border border-purple-400/40 rounded-2xl font-black text-sm text-amber-300 shadow cursor-pointer">
+                📦 3
+            </button>
+        </div>
+
+        <div id="points-game-result" class="bg-purple-900/60 p-2.5 rounded-xl border border-purple-500/30 text-[11px] font-bold text-purple-200">
+            اختر صندوقاً لبدء الجولة (الرهان الحالي: <span id="pg-current-bet">200</span> نقطة)
+        </div>
+    </section>
+
+    <!-- قسم عجلة الحظ اليومية -->
+    <section id="section-wheel" class="hidden w-full max-w-md bg-purple-950/80 p-4 rounded-2xl border border-purple-500/30 flex flex-col items-center gap-4 text-center">
+        <h2 class="text-sm font-black text-purple-200">🎡 عجلة الحظ اليومية</h2>
+        <p class="text-[11px] text-purple-300">دورة مجانية واحدة كل يوم لربح 5,000 تذكرة و 1,000 نقطة!</p>
+        <div id="wheel-element" class="w-36 h-36 rounded-full border-4 border-amber-400 bg-gradient-to-tr from-purple-700 via-fuchsia-600 to-amber-500 flex items-center justify-center shadow-xl wheel-transition">
+            <span class="bg-purple-950/90 px-3 py-1 rounded-full text-xs font-black text-amber-300">ROSid</span>
+        </div>
+        <button onclick="spinWheel()" class="w-full py-3 bg-amber-500 hover:bg-amber-400 text-purple-950 font-black rounded-xl text-xs shadow cursor-pointer">
+            🎯 تدوير العجلة الآن
+        </button>
+    </section>
+
+    <!-- قسم المكافآت والإحالة -->
+    <section id="section-rewards" class="hidden w-full max-w-md bg-purple-950/80 p-4 rounded-2xl border border-purple-500/30 flex flex-col gap-3">
+        <div class="bg-purple-900/60 p-3 rounded-xl border border-purple-500/30 text-center">
+            <h3 class="text-xs font-black text-purple-200 mb-1">🎁 المكافأة اليومية</h3>
+            <p class="text-[10px] text-purple-300 mb-2">احصل على 2,000 تذكرة و 300 نقطة كل 24 ساعة</p>
+            <button onclick="claimDailyReward()" class="w-full py-2.5 bg-purple-600 hover:bg-purple-500 text-white font-black rounded-xl text-xs shadow cursor-pointer">
+                استلام مكافأة اليوم
+            </button>
+        </div>
+
+        <div class="bg-purple-900/60 p-3 rounded-xl border border-purple-500/30 text-center">
+            <h3 class="text-xs font-black text-purple-200 mb-1">🤝 رابط الإحالة</h3>
+            <p class="text-[10px] text-purple-300 mb-2">شارك الرابط مع أصدقائك لربح 5,000 نقطة لكل صديق</p>
+            <div class="flex gap-2">
+                <input id="ref-link" type="text" readonly value="https://rosid-cash.web.app/?ref=ROSID30" class="w-full px-2.5 py-2 rounded-xl bg-purple-950 text-purple-200 text-[11px] border border-purple-500/30">
+                <button onclick="copyRefLink()" class="px-3 py-2 bg-purple-600 text-white font-black rounded-xl text-[11px] cursor-pointer shrink-0">
+                    نسخ
+                </button>
+            </div>
+        </div>
+    </section>
+
+    <!-- شريط السحب والإعلان السفلي (بدون عدّاد مرئي على زر الإعلان) -->
+    <footer class="w-full max-w-md grid grid-cols-2 gap-2.5 mt-1">
+        <div class="bg-purple-950/80 p-2.5 rounded-2xl border border-purple-500/30 flex flex-col justify-between text-center">
+            <span class="text-[10px] font-bold text-purple-200 mb-1">سحب الأرباح</span>
+            <button onclick="openRedeemModal()" class="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-black rounded-xl text-[11px] shadow cursor-pointer">
+                🎁 طلب كرت تعبئة
+            </button>
+            <span class="text-[9px] text-purple-300 mt-1">الحد الأدنى: 300,000 نقطة</span>
+        </div>
+
+        <div class="bg-purple-950/80 p-2.5 rounded-2xl border border-purple-500/30 flex flex-col justify-between text-center">
+            <span class="text-[10px] font-bold text-amber-300 mb-1">ضاعف أرباحك الآن 🚀</span>
+            <button id="ad-btn" onclick="watchAdReward()" class="w-full py-2.5 bg-purple-600 hover:bg-purple-500 text-white font-black rounded-xl text-[11px] shadow cursor-pointer">
+                📺 إعلان (+150 نقطة)
+            </button>
+            <span id="ad-status-hint" class="text-[9px] text-purple-300 mt-1">ابقَ 6 ثوانٍ داخل الإعلان للحصول على المكافأة</span>
+        </div>
+    </footer>
+
+    <!-- نافذة طلب السحب -->
+    <div id="redeem-modal" class="hidden fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-40">
+        <div class="w-full max-w-sm bg-purple-950 border border-purple-500/40 rounded-2xl p-4 text-center shadow-2xl">
+            <h3 class="text-sm font-black text-purple-200 mb-2">💳 طلب سحب الأرباح</h3>
+            <p id="redeem-status-text" class="text-[10px] text-purple-200 mb-3"></p>
+            <div id="redeem-form" class="hidden flex-col gap-2.5 text-right">
+                <label class="text-[10px] text-purple-300">رقم الهاتف:</label>
+                <input id="phone-number" type="tel" placeholder="09xxxxxxxx" class="w-full px-3 py-2 rounded-xl bg-purple-900 text-white text-xs border border-purple-500/40">
+                <label class="text-[10px] text-purple-300">الشبكة:</label>
+                <select id="network-type" class="w-full px-3 py-2 rounded-xl bg-purple-900 text-white text-xs border border-purple-500/40">
+                    <option value="Syriatel">Syriatel</option>
+                    <option value="MTN">MTN</option>
+                </select>
+                <button onclick="submitRedeemRequest()" class="w-full py-2.5 mt-1 bg-green-600 hover:bg-green-500 text-white font-black rounded-xl text-xs shadow cursor-pointer">
+                    تأكيد طلب السحب
+                </button>
+            </div>
+            <button onclick="closeRedeemModal()" class="w-full py-2 mt-3 bg-purple-800 hover:bg-purple-700 text-purple-200 font-bold rounded-xl text-xs cursor-pointer">
+                إغلاق
+            </button>
+        </div>
+    </div>
+
+    <!-- نافذة الرسائل والتنبيهات -->
+    <div id="modal" class="hidden fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50">
+        <div class="w-full max-w-sm bg-purple-950 border border-purple-500/40 rounded-2xl p-4 text-center shadow-2xl">
+            <h3 id="modal-title" class="text-sm font-black text-amber-300 mb-2"></h3>
+            <div id="modal-text" class="text-xs text-purple-100 leading-relaxed mb-4"></div>
+            <button onclick="closeModal()" class="w-full py-2.5 bg-purple-600 hover:bg-purple-500 text-white font-black rounded-xl text-xs shadow cursor-pointer">
+                حسناً
+            </button>
+        </div>
+    </div>
+
+    <!-- منطق اللعبة وربط Firebase Firestore -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
+        import {
+            getFirestore,
+            doc,
+            getDoc,
+            setDoc,
+            updateDoc,
+            serverTimestamp
+        } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
+
+        // إعدادات مشروع Firebase الخاص بالتطبيق
+        const firebaseConfig = {
+            apiKey: "AIzaSyBH-5yR71Hvdm3nNXwMIj4WrlirhKUqpZc",
+            authDomain: "rosid-cash.firebaseapp.com",
+            projectId: "rosid-cash",
+            storageBucket: "rosid-cash.firebasestorage.app",
+            messagingSenderId: "151108961238",
+            appId: "1:151108961238:web:4154835d40d8178a499a77",
+            measurementId: "G-1845ZSYLYV"
+        };
+
+        const firebaseApp = initializeApp(firebaseConfig);
+        const db = getFirestore(firebaseApp);
+
+        const APP_VERSION = "v3.0";
+        const VERSION_BUILD_ID = "ROSID_CASH_2026_V3_0_FIREBASE_ENFORCED";
+        const REQUIRED_AD_SECONDS = 6;
+        const AD_SMART_LINK = "https://araplhn.org/4/760dbcfd58ea140213698d28a77dca5c";
+        const SECRET_SALT = "RosidCashSecure2026_Key";
+
+        let balance = 5000;
+        let points = 0;
+        let currentBet = 500;
+        let pointsGameBet = 200;
+        let isWon = false;
+        let isRevealed = false;
+        let lastSpinDate = "";
+        let lastDailyDate = "";
+        let isOutdatedLock = false;
+        let isCloudReady = false;
+        let isAdClaimInProgress = false;
+        let isWheelSpinning = false;
+        let pointsBoxesRoundsCount = 0;
+
+        let adSession = null;
+        let adTimerId = null;
+
+        /**
+         * توليد أو استرجاع معرّف فريد للجهاز لتخزين بياناته في Firestore
+         */
+        function getDevicePlayerId() {
+            try {
+                let id = localStorage.getItem('rosid_player_id');
+                if (!id) {
+                    id = "USR-" + Math.random().toString(36).substring(2, 10).toUpperCase() + "-" + Date.now().toString(36).toUpperCase();
+                    localStorage.setItem('rosid_player_id', id);
+                }
+                return id;
+            } catch (e) {
+                return "USR-GUEST-" + Date.now().toString(36).toUpperCase();
+            }
+        }
+
+        const PLAYER_ID = getDevicePlayerId();
+
+        /**
+         * تحديث حقل رابط الإحالة ليشير إلى الرابط الحالي الفعلي للمستخدم مع كود الإحالة الخاص به
+         */
+        function syncReferralLinkInput() {
+            try {
+                const refInput = document.getElementById('ref-link');
+                if (!refInput) return;
+                const cleanBaseUrl = window.location.href.split('?')[0].split('#')[0];
+                if (cleanBaseUrl && cleanBaseUrl.startsWith('http')) {
+                    refInput.value = cleanBaseUrl + "?ref=" + encodeURIComponent(PLAYER_ID);
+                }
+            } catch (e) {}
+        }
+
+        /**
+         * معالجة قدوم لاعب عبر رابط إحالة (?ref=...) وتسجيل مكافأة الإحالة مرة واحدة على السيرفر
+         */
+        async function processIncomingReferral() {
+            if (isOutdatedLock || !isCloudReady) return;
+            try {
+                const params = new URLSearchParams(window.location.search || "");
+                const inviterId = (params.get('ref') || "").trim();
+                if (!inviterId || inviterId === PLAYER_ID || inviterId === "ROSID30") return;
+
+                const userRef = doc(db, "users", PLAYER_ID);
+                const userSnap = await getDoc(userRef);
+                const userData = userSnap.exists() ? userSnap.data() : {};
+
+                if (userData.referredBy) return;
+
+                await setDoc(userRef, {
+                    referredBy: inviterId,
+                    referralBonusClaimed: true,
+                    balance: balance + 2000,
+                    points: points + 1000,
+                    updatedAt: serverTimestamp()
+                }, { merge: true });
+
+                balance += 2000;
+                points += 1000;
+                updateUI();
+                saveLocalCache();
+
+                const inviterRef = doc(db, "users", inviterId);
+                const inviterSnap = await getDoc(inviterRef);
+                if (inviterSnap.exists()) {
+                    const inviterData = inviterSnap.data();
+                    const currentInviterPoints = typeof inviterData.points === "number" ? inviterData.points : 0;
+                    await updateDoc(inviterRef, {
+                        points: currentInviterPoints + 5000,
+                        referralCount: (typeof inviterData.referralCount === "number" ? inviterData.referralCount : 0) + 1,
+                        updatedAt: serverTimestamp()
+                    });
+                }
+
+                showModal("تم تفعيل الإحالة 🎉", "أهلاً بك! تم منحك 2,000 تذكرة و 1,000 نقطة ترحيبية عبر رابط الإحالة.");
+            } catch (e) {
+                console.error("Referral processing error:", e);
+            }
+        }
+
+        /**
+         * تحديث شارة حالة الاتصال بالسيرفر
+         */
+        function setCloudBadge(text, isOk) {
+            const badge = document.getElementById('cloud-status-badge');
+            if (!badge) return;
+            badge.innerText = text;
+            badge.className = isOk ? "text-[8px] text-green-400" : "text-[8px] text-rose-300";
+        }
+
+        /**
+         * تفعيل شاشة الصورة الثابتة وإيقاف جميع أنظمة اللعبة عند وجود إصدار قديم
+         */
+        function activateOutdatedImageScreen() {
+            isOutdatedLock = true;
+            isCloudReady = false;
+            if (adTimerId) {
+                clearInterval(adTimerId);
+                adTimerId = null;
+            }
+            adSession = null;
+            setCloudBadge("⛔ إصدار قديم", false);
+            const outdatedEl = document.getElementById('outdated-screen');
+            if (outdatedEl) {
+                outdatedEl.classList.remove('hidden');
+            }
+        }
+
+        /**
+         * منع تنفيذ أي إجراء عندما يكون الإصدار قديماً أو السيرفر غير جاهز
+         */
+        function guardActionIfOutdated() {
+            if (isOutdatedLock) {
+                activateOutdatedImageScreen();
+                return true;
+            }
+            if (!isCloudReady) {
+                showModal(
+                    "غير متصل بالسيرفر ☁️",
+                    "يرجى التأكد من الاتصال بالإنترنت وتفعيل Firestore Database في Firebase للتحقق من حسابك."
+                );
+                return true;
+            }
+            return false;
+        }
+
+        /**
+         * مزامنة بيانات اللاعب وفحص الإصدار المعتمد من Firestore
+         */
+        async function syncWithFirebaseServer() {
+            try {
+                setCloudBadge("☁️ جاري التحقق...", true);
+
+                const configRef = doc(db, "config", "app");
+                const configSnap = await getDoc(configRef);
+
+                if (!configSnap.exists()) {
+                    await setDoc(configRef, {
+                        minVersion: APP_VERSION,
+                        latestVersion: APP_VERSION,
+                        buildId: VERSION_BUILD_ID,
+                        updatedAt: serverTimestamp()
+                    });
+                } else {
+                    const cfg = configSnap.data();
+                    if ((cfg.minVersion && cfg.minVersion !== APP_VERSION) || (cfg.buildId && cfg.buildId !== VERSION_BUILD_ID)) {
+                        activateOutdatedImageScreen();
+                        return false;
+                    }
+                }
+
+                const userRef = doc(db, "users", PLAYER_ID);
+                const userSnap = await getDoc(userRef);
+
+                if (!userSnap.exists()) {
+                    await setDoc(userRef, {
+                        playerId: PLAYER_ID,
+                        version: APP_VERSION,
+                        buildId: VERSION_BUILD_ID,
+                        balance: balance,
+                        points: points,
+                        lastSpinDate: lastSpinDate,
+                        lastDailyDate: lastDailyDate,
+                        adStartedAt: null,
+                        adToken: null,
+                        updatedAt: serverTimestamp()
+                    });
+                } else {
+                    const data = userSnap.data();
+                    if (typeof data.balance === "number") balance = data.balance;
+                    if (typeof data.points === "number") points = data.points;
+                    if (typeof data.lastSpinDate === "string") lastSpinDate = data.lastSpinDate;
+                    if (typeof data.lastDailyDate === "string") lastDailyDate = data.lastDailyDate;
+                }
+
+                isCloudReady = true;
+                setCloudBadge("☁️ متصل ومؤمّن", true);
+                saveLocalCache();
+                updateUI();
+                return true;
+            } catch (err) {
+                console.error("Firebase sync error:", err);
+                setCloudBadge("⚠️ بانتظار تفعيل Firestore", false);
+                showModal(
+                    "تنبيه الاتصال بالسيرفر ☁️",
+                    "تعذّر الاتصال بقاعدة بيانات Firebase Firestore حالياً.\nتأكد من تفعيل Firestore Database في مشروعك ومن توفر الإنترنت."
+                );
+                return false;
+            }
+        }
+
+        /**
+         * التحقق المحلي وتصفير بيانات الكاش إذا تغير رقم الإصدار أو البناء
+         */
+        function enforceLocalVersionGate() {
+            try {
+                if (!window.localStorage) return true;
+                const savedVer = localStorage.getItem('rosid_app_version');
+                const savedBuild = localStorage.getItem('rosid_build_id');
+                const hasExistingState = localStorage.getItem('rosid_balance') !== null || localStorage.getItem('rosid_points') !== null;
+
+                if (hasExistingState && (savedVer !== APP_VERSION || savedBuild !== VERSION_BUILD_ID)) {
+                    localStorage.removeItem('rosid_balance');
+                    localStorage.removeItem('rosid_points');
+                    localStorage.removeItem('rosid_hash');
+                }
+                localStorage.setItem('rosid_app_version', APP_VERSION);
+                localStorage.setItem('rosid_build_id', VERSION_BUILD_ID);
+                return true;
+            } catch (e) {
+                return true;
+            }
+        }
+
+        const canvas = document.getElementById('scratchCanvas');
+        const ctx = canvas && canvas.getContext ? canvas.getContext('2d') : null;
+
+        /**
+         * ضبط أبعاد لوحة الخدش وإعادة رسم طبقة التغطية
+         */
+        function resizeCanvas() {
+            if (!canvas || !ctx) return;
+            try {
+                canvas.width = canvas.offsetWidth || 300;
+                canvas.height = canvas.offsetHeight || 160;
+                drawOverlay();
+            } catch (e) {}
+        }
+
+        /**
+         * رسم طبقة الخدش البنفسجية
+         */
+        function drawOverlay() {
+            if (!canvas || !ctx) return;
+            try {
+                ctx.globalCompositeOperation = 'source-over';
+                ctx.fillStyle = '#6b21a8';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = '#f3e8ff';
+                ctx.font = 'bold 16px system-ui';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('✨ Rosid Cash ✨', canvas.width / 2, canvas.height / 2);
+            } catch (e) {}
+        }
+
+        /**
+         * تهيئة التطبيق وتشغيل المزامنة والبطاقة الأولى
+         */
+        async function startApp() {
+            const badge = document.getElementById('app-version-badge');
+            if (badge) badge.innerText = APP_VERSION;
+            syncReferralLinkInput();
+            resizeCanvas();
+            enforceLocalVersionGate();
+            loadLocalCache();
+            const ok = await syncWithFirebaseServer();
+            if (ok && !isOutdatedLock) {
+                await processIncomingReferral();
+                determineOutcome();
+            }
+        }
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', startApp);
+        } else {
+            startApp();
+        }
+
+        window.onresize = () => {
+            if (!isRevealed) resizeCanvas();
+        };
+
+        /**
+         * التبديل بين تبويبات الخدش ولعبة النقاط وعجلة الحظ والمكافآت
+         */
+        window.switchTab = function(tab) {
+            if (guardActionIfOutdated()) return;
+
+            document.getElementById('section-scratch').classList.add('hidden');
+            document.getElementById('section-points-game').classList.add('hidden');
+            document.getElementById('section-wheel').classList.add('hidden');
+            document.getElementById('section-rewards').classList.add('hidden');
+
+            document.getElementById('tab-scratch').className = "py-2 bg-purple-900/80 text-purple-200 font-black rounded-xl text-[10px] shadow cursor-pointer border border-purple-500/30";
+            document.getElementById('tab-points-game').className = "py-2 bg-purple-900/80 text-purple-200 font-black rounded-xl text-[10px] shadow cursor-pointer border border-purple-500/30";
+            document.getElementById('tab-wheel').className = "py-2 bg-purple-900/80 text-purple-200 font-black rounded-xl text-[10px] shadow cursor-pointer border border-purple-500/30";
+            document.getElementById('tab-rewards').className = "py-2 bg-purple-900/80 text-purple-200 font-black rounded-xl text-[10px] shadow cursor-pointer border border-purple-500/30";
+
+            if (tab === 'scratch') {
+                document.getElementById('section-scratch').classList.remove('hidden');
+                document.getElementById('tab-scratch').className = "py-2 bg-purple-600 text-white font-black rounded-xl text-[10px] shadow cursor-pointer border border-purple-400";
+            } else if (tab === 'points-game') {
+                document.getElementById('section-points-game').classList.remove('hidden');
+                document.getElementById('tab-points-game').className = "py-2 bg-purple-600 text-white font-black rounded-xl text-[10px] shadow cursor-pointer border border-purple-400";
+            } else if (tab === 'wheel') {
+                document.getElementById('section-wheel').classList.remove('hidden');
+                document.getElementById('tab-wheel').className = "py-2 bg-purple-600 text-white font-black rounded-xl text-[10px] shadow cursor-pointer border border-purple-400";
+            } else if (tab === 'rewards') {
+                document.getElementById('section-rewards').classList.remove('hidden');
+                document.getElementById('tab-rewards').className = "py-2 bg-purple-600 text-white font-black rounded-xl text-[10px] shadow cursor-pointer border border-purple-400";
+            }
+        };
+
+        /**
+         * تحديد رهان النقاط في لعبة الصناديق (200 أو 500 نقطة)
+         */
+        window.setPointsBet = function(amount) {
+            if (guardActionIfOutdated()) return;
+            pointsGameBet = amount;
+            document.getElementById('pg-current-bet').innerText = Number(amount).toLocaleString();
+            if (amount === 200) {
+                document.getElementById('pg-bet-200').className = "py-2 bg-purple-600 text-white font-black rounded-xl text-xs shadow border border-purple-400 cursor-pointer";
+                document.getElementById('pg-bet-500').className = "py-2 bg-purple-900/80 text-purple-300 font-black rounded-xl text-xs shadow border border-purple-500/40 cursor-pointer";
+            } else {
+                document.getElementById('pg-bet-500').className = "py-2 bg-purple-600 text-white font-black rounded-xl text-xs shadow border border-purple-400 cursor-pointer";
+                document.getElementById('pg-bet-200').className = "py-2 bg-purple-900/80 text-purple-300 font-black rounded-xl text-xs shadow border border-purple-500/40 cursor-pointer";
+            }
+        };
+
+        /**
+         * لعب جولة ربح أو خسارة بالنقاط وتشغيل إعلان تلقائي كل 3 جولات
+         */
+        window.playPointsBox = function(boxIndex) {
+            if (guardActionIfOutdated()) return;
+
+            if (points < pointsGameBet) {
+                showModal("نقاط غير كافية", "تحتاج إلى " + pointsGameBet + " نقطة على الأقل لخوض هذا الرهان. شاهد إعلاناً لزيادة نقاطك!");
+                return;
+            }
+
+            const winningBox = Math.floor(Math.random() * 3);
+            const resultEl = document.getElementById('points-game-result');
+            pointsBoxesRoundsCount += 1;
+
+            if (boxIndex === winningBox) {
+                const winAmount = pointsGameBet * 2;
+                points += winAmount;
+                updateUI();
+                saveUserData();
+                resultEl.innerText = "🎉 ربحت +" + winAmount + " نقطة من الصندوق " + (boxIndex + 1) + "!";
+                resultEl.className = "bg-emerald-950/80 p-2.5 rounded-xl border border-emerald-400/40 text-[11px] font-bold text-emerald-300";
+            } else {
+                points = Math.max(0, points - pointsGameBet);
+                updateUI();
+                saveUserData();
+                resultEl.innerText = "💥 خسرت " + pointsGameBet + " نقطة! الصندوق الرابح كان رقم " + (winningBox + 1) + ".";
+                resultEl.className = "bg-rose-950/80 p-2.5 rounded-xl border border-rose-400/40 text-[11px] font-bold text-rose-300";
+            }
+
+            if (pointsBoxesRoundsCount % 3 === 0) {
+                setTimeout(() => {
+                    if (!isOutdatedLock && isCloudReady && !adSession) {
+                        window.watchAdReward();
+                    }
+                }, 400);
+            }
+        };
+
+        /**
+         * تحديد قيمة تذكرة الخدش (500 أو 1000 تذكرة)
+         */
+        window.setBet = function(amount) {
+            if (guardActionIfOutdated()) return;
+
+            currentBet = amount;
+            if (amount === 500) {
+                document.getElementById('bet-500').className = "py-1.5 bg-purple-600 text-white font-black rounded-xl text-xs shadow border border-purple-400 cursor-pointer";
+                document.getElementById('bet-1000').className = "py-1.5 bg-purple-900/80 text-purple-300 font-black rounded-xl text-xs shadow border border-purple-500/40 cursor-pointer";
+            } else {
+                document.getElementById('bet-1000').className = "py-1.5 bg-purple-600 text-white font-black rounded-xl text-xs shadow border border-purple-400 cursor-pointer";
+                document.getElementById('bet-500').className = "py-1.5 bg-purple-900/80 text-purple-300 font-black rounded-xl text-xs shadow border border-purple-500/40 cursor-pointer";
+            }
+            window.initNewCard();
+        };
+
+        /**
+         * خصم قيمة التذكرة وتحديد نتيجة الخدش
+         */
+        function determineOutcome() {
+            if (isOutdatedLock || !isCloudReady) return false;
+            if (balance < currentBet) return false;
+            balance -= currentBet;
+            updateUI();
+            saveUserData();
+
+            isWon = (Math.random() * 100) < 40;
+            const titleEl = document.getElementById('result-title');
+            const descEl = document.getElementById('result-desc');
+
+            if (isWon) {
+                window.currentPrize = currentBet;
+                window.earnedPoints = currentBet;
+                titleEl.innerText = "🎉 مبروك! ربحت " + currentBet.toLocaleString() + " تذكرة";
+                titleEl.className = "text-xs font-black text-green-400 mt-0.5";
+                descEl.innerText = "+" + currentBet.toLocaleString() + " نقطة سحب";
+            } else {
+                window.currentPrize = 0;
+                window.earnedPoints = 150;
+                titleEl.innerText = "❌ حظ أوفر في القادمة";
+                titleEl.className = "text-xs font-black text-rose-300 mt-0.5";
+                descEl.innerText = "حصلت على " + window.earnedPoints + " نقطة تعويضية";
+            }
+
+            isRevealed = false;
+            resizeCanvas();
+            return true;
+        }
+
+        /**
+         * بدء بطاقة خدش جديدة
+         */
+        window.initNewCard = function() {
+            if (guardActionIfOutdated()) return;
+
+            if (balance < currentBet) {
+                showModal("عذراً!", "رصيد التذاكر غير كافٍ! شاهد إعلاناً أو استخدم عجلة الحظ لزيادة تذاكرك.");
+                return;
+            }
+            if (determineOutcome()) {
+                document.getElementById('action-btn').classList.add('hidden');
+            }
+        };
+
+        let isDrawing = false;
+
+        function getMousePos(e) {
+            const rect = canvas.getBoundingClientRect();
+            let clientX = e.clientX;
+            let clientY = e.clientY;
+            if (e.touches && e.touches.length > 0) {
+                clientX = e.touches[0].clientX;
+                clientY = e.touches[0].clientY;
+            }
+            return { x: clientX - rect.left, y: clientY - rect.top };
+        }
+
+        function scratch(e) {
+            if (isOutdatedLock || !isCloudReady || isRevealed || !ctx) return;
+            try {
+                const pos = getMousePos(e);
+                ctx.globalCompositeOperation = 'destination-out';
+                ctx.beginPath();
+                ctx.arc(pos.x, pos.y, 25, 0, Math.PI * 2, false);
+                ctx.fill();
+
+                if (Math.random() < 0.1 && getScratchedPercentage() > 40) {
+                    revealFullCard();
+                }
+            } catch (err) {}
+        }
+
+        function getScratchedPercentage() {
+            if (!ctx || !canvas) return 50;
+            try {
+                const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                const pixels = imgData.data;
+                let transparent = 0;
+                for (let i = 3; i < pixels.length; i += 16) {
+                    if (pixels[i] === 0) transparent++;
+                }
+                return (transparent / (pixels.length / 16)) * 100;
+            } catch (e) {
+                return 50;
+            }
+        }
+
+        /**
+         * إظهار كامل البطاقة ومنح التذاكر والنقاط وحفظها
+         */
+        function revealFullCard() {
+            if (isOutdatedLock || !isCloudReady || isRevealed) return;
+            isRevealed = true;
+            if (ctx && canvas) {
+                try {
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                } catch (e) {}
+            }
+            if (isWon) balance += (window.currentPrize || 0);
+            points += (window.earnedPoints || 0);
+            updateUI();
+            saveUserData();
+            document.getElementById('action-btn').classList.remove('hidden');
+        }
+
+        if (canvas) {
+            canvas.addEventListener('mousedown', (e) => { isDrawing = true; scratch(e); });
+            canvas.addEventListener('mousemove', (e) => { if (isDrawing) scratch(e); });
+            window.addEventListener('mouseup', () => { isDrawing = false; });
+            canvas.addEventListener('touchstart', (e) => { isDrawing = true; scratch(e); e.preventDefault(); }, { passive: false });
+            canvas.addEventListener('touchmove', (e) => { if (isDrawing) scratch(e); e.preventDefault(); }, { passive: false });
+            window.addEventListener('touchend', () => { isDrawing = false; });
+        }
+
+        /**
+         * تدوير عجلة الحظ اليومية ومنع التكرار في نفس اليوم
+         */
+        window.spinWheel = function() {
+            if (guardActionIfOutdated()) return;
+            if (isWheelSpinning) return;
+
+            const today = new Date().toDateString();
+            if (lastSpinDate === today) {
+                showModal("عجلة الحظ", "لقد استخدمت دورتك المجانية اليومية بالفعل! عُد غداً لتدوير العجلة مجدداً.");
+                return;
+            }
+
+            isWheelSpinning = true;
+            const wheel = document.getElementById('wheel-element');
+            const randomDegree = 1440 + Math.floor(Math.random() * 360);
+            wheel.style.transform = "rotate(" + randomDegree + "deg)";
+
+            setTimeout(() => {
+                isWheelSpinning = false;
+                if (isOutdatedLock || !isCloudReady) return;
+                lastSpinDate = today;
+                balance += 5000;
+                points += 1000;
+                updateUI();
+                saveUserData();
+                showModal("مبروك! 🎡", "ربحت 5,000 تذكرة و 1,000 نقطة سحب إضافية من عجلة الحظ!");
+            }, 4000);
+        };
+
+        /**
+         * استلام المكافأة اليومية مرة واحدة كل 24 ساعة
+         */
+        window.claimDailyReward = function() {
+            if (guardActionIfOutdated()) return;
+
+            const today = new Date().toDateString();
+            if (lastDailyDate === today) {
+                showModal("المكافأة اليومية", "لقد استلمت مكافأتك اليومية مسبقاً. انتظر حتى يوم غد!");
+                return;
+            }
+
+            lastDailyDate = today;
+            balance += 2000;
+            points += 300;
+            updateUI();
+            saveUserData();
+            showModal("مكافأة اليوم 🎁", "تمت إضافة 2,000 تذكرة و 300 نقطة سحب إلى رصيدك بنجاح!");
+        };
+
+        async function copyValueToClipboard(text, element) {
+            if (element) {
+                try {
+                    element.focus();
+                    element.select();
+                    element.setSelectionRange(0, element.value.length);
+                } catch (e) {}
+            }
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                try {
+                    await navigator.clipboard.writeText(text);
+                    return true;
+                } catch (e) {}
+            }
+            try {
+                return document.execCommand('copy');
+            } catch (e) {
+                return false;
+            }
+        }
+
+        window.copyRefLink = async function() {
+            if (guardActionIfOutdated()) return;
+
+            const refInput = document.getElementById('ref-link');
+            const copied = await copyValueToClipboard(refInput.value, refInput);
+            if (copied) {
+                showModal("تم النسخ 📋", "تم نسخ رابط الإحالة الخاص بك بنجاح! شاركه مع أصدقائك لتربح 5,000 نقطة عن كل صديق ينضم.");
+            } else {
+                showModal("نسخ الرابط 📋", "تم تحديد الرابط لك؛ يمكنك نسخه يدوياً عبر الضغط المطول:\n" + refInput.value);
+            }
+        };
+
+        /**
+         * تحديث التذاكر والنقاط على الشاشة
+         */
+        function updateUI() {
+            document.getElementById('balance').innerText = Number(balance).toLocaleString();
+            document.getElementById('points-count').innerText = Number(points).toLocaleString() + " نقطة";
+        }
+
+        function saveLocalCache() {
+            try {
+                if (!window.localStorage) return;
+                localStorage.setItem('rosid_app_version', APP_VERSION);
+                localStorage.setItem('rosid_build_id', VERSION_BUILD_ID);
+                localStorage.setItem('rosid_balance', String(balance));
+                localStorage.setItem('rosid_points', String(points));
+                localStorage.setItem('rosid_spin', String(lastSpinDate));
+                localStorage.setItem('rosid_daily', String(lastDailyDate));
+                localStorage.setItem('rosid_hash', generateHash(balance, points));
+            } catch (e) {}
+        }
+
+        function loadLocalCache() {
+            try {
+                if (!window.localStorage) {
+                    updateUI();
+                    return;
+                }
+                const savedBal = localStorage.getItem('rosid_balance');
+                const savedPts = localStorage.getItem('rosid_points');
+                const savedHash = localStorage.getItem('rosid_hash');
+                lastSpinDate = localStorage.getItem('rosid_spin') || "";
+                lastDailyDate = localStorage.getItem('rosid_daily') || "";
+
+                if (savedBal !== null && savedPts !== null && savedHash !== null) {
+                    const parsedBal = parseInt(savedBal, 10);
+                    const parsedPts = parseInt(savedPts, 10);
+                    if (!isNaN(parsedBal) && !isNaN(parsedPts) && generateHash(parsedBal, parsedPts) === savedHash) {
+                        balance = parsedBal;
+                        points = parsedPts;
+                    }
+                }
+                updateUI();
+            } catch (e) {
+                updateUI();
+            }
+        }
+
+        /**
+         * حفظ رصيد اللاعب على Firestore والكاش المحلي
+         */
+        async function saveUserData() {
+            if (isOutdatedLock || !isCloudReady) return;
+            saveLocalCache();
+            try {
+                const userRef = doc(db, "users", PLAYER_ID);
+                await setDoc(userRef, {
+                    playerId: PLAYER_ID,
+                    version: APP_VERSION,
+                    buildId: VERSION_BUILD_ID,
+                    balance: balance,
+                    points: points,
+                    lastSpinDate: lastSpinDate,
+                    lastDailyDate: lastDailyDate,
+                    updatedAt: serverTimestamp()
+                }, { merge: true });
+            } catch (e) {
+                console.error("Failed to save to Firestore:", e);
+            }
+        }
+
+        function updateAdButtonUI(label, hint) {
+            const btn = document.getElementById('ad-btn');
+            const hintEl = document.getElementById('ad-status-hint');
+            if (btn && label) btn.innerText = label;
+            if (hintEl && hint) hintEl.innerText = hint;
+        }
+
+        async function clearServerAdSession() {
+            try {
+                const userRef = doc(db, "users", PLAYER_ID);
+                await updateDoc(userRef, {
+                    adStartedAt: null,
+                    adToken: null
+                });
+            } catch (e) {}
+        }
+
+        function stopAdSession(reason) {
+            if (adTimerId) {
+                clearInterval(adTimerId);
+                adTimerId = null;
+            }
+            adSession = null;
+            clearServerAdSession();
+            updateAdButtonUI("📺 إعلان (+150 نقطة)", "ابقَ 6 ثوانٍ داخل الإعلان للحصول على المكافأة");
+            if (reason) {
+                showModal("لم تكتمل المشاهدة ❌", reason);
+            }
+        }
+
+        /**
+         * حساب الثواني المنقضية منذ مغادرة التطبيق أو بدء جلسة الإعلان
+         */
+        function getElapsedAdSeconds(session) {
+            if (!session) return 0;
+            const startReference = session.startedAt || Date.now();
+            const fromStart = Math.max(0, Math.floor((Date.now() - startReference) / 1000));
+            if (session.leftAt) {
+                const fromLeft = Math.max(0, Math.floor((Date.now() - session.leftAt) / 1000));
+                return Math.max(fromStart, fromLeft);
+            }
+            return fromStart;
+        }
+
+        /**
+         * التحقق من البقاء 6 ثوانٍ داخل الإعلان عند العودة ومنح المكافأة
+         */
+        async function checkAdSessionOnReturn(allowDirectPreviewClaim = false) {
+            if (isOutdatedLock || !isCloudReady || !adSession || adSession.finished || isAdClaimInProgress) return;
+
+            if (!adSession.leftAt && !allowDirectPreviewClaim) {
+                return;
+            }
+
+            const localSecondsElapsed = getElapsedAdSeconds(adSession);
+            if (localSecondsElapsed < REQUIRED_AD_SECONDS) {
+                stopAdSession(
+                    "رجعت مبكراً (" + localSecondsElapsed + " ثانية فقط).\nإذا دخلت وخرجت فوراً أو رجعت قبل " + REQUIRED_AD_SECONDS + " ثوانٍ لا تحصل على المكافأة."
+                );
+                return;
+            }
+
+            isAdClaimInProgress = true;
+            updateAdButtonUI("📺 إعلان (+150 نقطة)", "جاري التحقق من السيرفر...");
+
+            try {
+                const userRef = doc(db, "users", PLAYER_ID);
+                const snap = await getDoc(userRef);
+                if (!snap.exists()) {
+                    isAdClaimInProgress = false;
+                    stopAdSession("تعذّر التحقق من جلسة الإعلان على السيرفر.");
+                    return;
+                }
+
+                const uData = snap.data();
+                if (!uData.adToken || uData.adToken !== adSession.token || !uData.adStartedAt) {
+                    isAdClaimInProgress = false;
+                    stopAdSession("جلسة الإعلان غير صالحة أو منتهية.");
+                    return;
+                }
+
+                await updateDoc(userRef, {
+                    adEndedAt: serverTimestamp()
+                });
+                const verifiedSnap = await getDoc(userRef);
+                const vData = verifiedSnap.data();
+
+                const startMs = vData.adStartedAt && vData.adStartedAt.toMillis ? vData.adStartedAt.toMillis() : 0;
+                const endMs = vData.adEndedAt && vData.adEndedAt.toMillis ? vData.adEndedAt.toMillis() : Date.now();
+                const serverElapsedSec = Math.floor((endMs - startMs) / 1000);
+                const effectiveSeconds = Math.max(serverElapsedSec, localSecondsElapsed);
+
+                if (effectiveSeconds < REQUIRED_AD_SECONDS) {
+                    isAdClaimInProgress = false;
+                    stopAdSession(
+                        "لم تكتمل مدة " + REQUIRED_AD_SECONDS + " ثوانٍ داخل الإعلان، لذلك لا تحصل على المكافأة."
+                    );
+                    return;
+                }
+
+                adSession.finished = true;
+                if (adTimerId) {
+                    clearInterval(adTimerId);
+                    adTimerId = null;
+                }
+                adSession = null;
+                isAdClaimInProgress = false;
+
+                balance += 500;
+                points += 150;
+                updateUI();
+                saveLocalCache();
+
+                await updateDoc(userRef, {
+                    balance: balance,
+                    points: points,
+                    adStartedAt: null,
+                    adEndedAt: null,
+                    adToken: null,
+                    updatedAt: serverTimestamp()
+                });
+
+                updateAdButtonUI("📺 إعلان (+150 نقطة)", "ابقَ 6 ثوانٍ داخل الإعلان للحصول على المكافأة");
+                showModal(
+                    "تمت المشاهدة وتوثيق السيرفر 🎉",
+                    "بقيت داخل الإعلان " + effectiveSeconds + " ثانية، وتمت إضافة 500 تذكرة و 150 نقطة إلى حسابك!"
+                );
+            } catch (err) {
+                isAdClaimInProgress = false;
+                stopAdSession("حدث خطأ أثناء التحقق مع السيرفر. حاول مجدداً.");
+            }
+        }
+
+        function markAdLeft() {
+            if (!adSession || adSession.finished) return;
+            if (!adSession.leftAt) {
+                adSession.leftAt = Date.now();
+            }
+        }
+
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                markAdLeft();
+            } else {
+                checkAdSessionOnReturn();
+            }
+        });
+
+        window.addEventListener('blur', () => {
+            markAdLeft();
+        });
+
+        window.addEventListener('focus', () => {
+            checkAdSessionOnReturn();
+        });
+
+        window.addEventListener('pagehide', () => {
+            markAdLeft();
+        });
+
+        window.addEventListener('pageshow', () => {
+            checkAdSessionOnReturn();
+        });
+
+        /**
+         * فتح رابط الإعلان وتسجيل الجلسة دون إظهار أي عدّاد مرئي
+         */
+        window.watchAdReward = async function() {
+            if (guardActionIfOutdated()) return;
+
+            if (adSession && !adSession.finished) {
+                const elapsedNow = getElapsedAdSeconds(adSession);
+                if (elapsedNow >= REQUIRED_AD_SECONDS) {
+                    await checkAdSessionOnReturn(true);
+                } else {
+                    stopAdSession(
+                        "رجعت قبل مرور " + REQUIRED_AD_SECONDS + " ثوانٍ، لذلك لم تحصل على المكافأة."
+                    );
+                }
+                return;
+            }
+
+            const token = "AD-" + Date.now() + "-" + Math.random().toString(36).substring(2, 8);
+            adSession = {
+                token: token,
+                startedAt: Date.now(),
+                leftAt: 0,
+                finished: false
+            };
+
+            updateAdButtonUI("📺 إعلان (+150 نقطة)", "ابقَ 6 ثوانٍ داخل الإعلان ثم ارجع");
+
+            try {
+                const userRef = doc(db, "users", PLAYER_ID);
+                setDoc(userRef, {
+                    adToken: token,
+                    adStartedAt: serverTimestamp(),
+                    adEndedAt: null
+                }, { merge: true }).catch(() => {});
+            } catch (e) {}
+
+            try {
+                window.open(AD_SMART_LINK, "_blank", "noopener,noreferrer");
+            } catch (e) {
+                try {
+                    const a = document.createElement('a');
+                    a.href = AD_SMART_LINK;
+                    a.target = "_blank";
+                    a.rel = "noopener noreferrer";
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                } catch (err) {}
+            }
+
+            adTimerId = setInterval(() => {
+                if (!adSession || adSession.finished || isAdClaimInProgress) return;
+                if (!document.hidden && getElapsedAdSeconds(adSession) >= REQUIRED_AD_SECONDS && adSession.leftAt) {
+                    checkAdSessionOnReturn(true);
+                }
+            }, 500);
+        };
+
+        window.openRedeemModal = function() {
+            if (guardActionIfOutdated()) return;
+
+            const modal = document.getElementById('redeem-modal');
+            const statusText = document.getElementById('redeem-status-text');
+            const form = document.getElementById('redeem-form');
+
+            modal.classList.remove('hidden');
+
+            if (points >= 300000) {
+                statusText.innerHTML = "تهانينا! لقد وصلت إلى الحد الأدنى (300,000 نقطة موثقة على السيرفر).<br>أدخل رقم هاتفك وشبكيتك لإنشاء طلب السحب:";
+                statusText.className = "text-[10px] text-green-400 font-bold mb-3";
+                form.classList.remove('hidden');
+                form.classList.add('flex');
+            } else {
+                let remaining = 300000 - points;
+                statusText.innerText = "لديك حالياً " + points.toLocaleString() + " نقطة موثقة على السيرفر. بقي لك " + remaining.toLocaleString() + " نقطة للوصول إلى هدف السحب (300,000).";
+                statusText.className = "text-[10px] text-purple-200 mb-3 whitespace-pre-line";
+                form.classList.add('hidden');
+                form.classList.remove('flex');
+            }
+        };
+
+        window.closeRedeemModal = function() {
+            document.getElementById('redeem-modal').classList.add('hidden');
+        };
+
+        /**
+         * إنشاء طلب سحب وحفظه في Firestore وتحديث رصيد النقاط
+         */
+        window.submitRedeemRequest = async function() {
+            if (guardActionIfOutdated()) return;
+
+            const phoneInput = document.getElementById('phone-number');
+            const phone = phoneInput.value.trim();
+            const network = document.getElementById('network-type').value;
+
+            if (!phone || phone.length < 9) {
+                showModal("تنبيه", "الرجاء إدخال رقم هاتف صحيح ومؤلف من 9 أرقام على الأقل");
+                return;
+            }
+
+            const mySyrianNumber = "0931791195";
+            const verificationCode = "SECURE-" + Math.floor(100000 + Math.random() * 900000);
+            const redeemedPoints = points;
+            const message = "طلب سحب أرباح رصيد كاش:\nمعرّف اللاعب: " + PLAYER_ID + "\nرقم المستخدم: " + phone + " (" + network + ")\nالنقاط الموثقة: " + redeemedPoints.toLocaleString() + "\nرمز التحقق: " + verificationCode + "\n\nيرجى التواصل مع رقم المالك لإتمام السحب: " + mySyrianNumber;
+
+            try {
+                await setDoc(doc(db, "withdrawals", verificationCode), {
+                    playerId: PLAYER_ID,
+                    phone: phone,
+                    network: network,
+                    points: redeemedPoints,
+                    verificationCode: verificationCode,
+                    createdAt: serverTimestamp()
+                });
+            } catch (e) {}
+
+            closeRedeemModal();
+
+            showModal("تم إنشاء طلب السحب بنجاح! 🎉", "\n                رقمك المسجل: " + phone + " (" + network + ")<br><br>\n                <b>رقم واتساب المالك السوري:</b><br>\n                <div class=\"bg-purple-900 p-2 rounded-xl text-amber-300 font-black text-sm my-1 select-all\">" + mySyrianNumber + "</div>\n                \n                <b>انسخ النص أدناه والصقه في واتساب لطلب السحب:</b><br>\n                <textarea id=\"copy-box\" class=\"p-2 bg-purple-900 text-purple-200 text-xs rounded-xl border border-purple-500/30 text-center my-2 select-all\" onclick=\"this.select()\">" + message + "</textarea>\n                \n                <button type=\"button\" onclick=\"copyTextBox()\" class=\"w-full py-3 bg-green-600 text-white font-black rounded-xl text-xs shadow text-center cursor-pointer\">📋 نسخ النص ورقم المالك</button>\n            ");
+
+            points = 0;
+            updateUI();
+            saveUserData();
+        };
+
+        window.copyTextBox = async function() {
+            const box = document.getElementById('copy-box');
+            if (!box) return;
+            const copied = await copyValueToClipboard(box.value, box);
+            if (copied) {
+                showModal("تم النسخ ✅", "تم نسخ النص بنجاح! الصقه الآن في واتساب رقم المالك لإتمام عملية السحب.");
+            } else {
+                showModal("نسخ النص 📋", "تم تحديد النص لك؛ اضغط مطولاً على المربع المحدد لنسخه يدوياً.");
+            }
+        };
+
+        function showModal(title, text) {
+            document.getElementById('modal-title').innerText = title;
+            document.getElementById('modal-text').innerHTML = text;
+            document.getElementById('modal').classList.remove('hidden');
+        }
+
+        window.closeModal = function() {
+            document.getElementById('modal').classList.add('hidden');
+        };
+    </script>
+</body>
+</html>
+
+```
